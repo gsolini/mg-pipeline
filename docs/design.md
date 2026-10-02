@@ -137,37 +137,45 @@ annotation:
 ```
 
 ## 7. Output tree
-
 ```
 results/
-├── 01_qc/{sample}/
-├── 02_host_removed/{sample}/
-├── 03_assembly/{assembler}/{assembly_id}/       # assembly_id = sample or group_coassembly
-│   └── selected/{assembly_id}.fa
-├── 04_assembly_qc/{assembly_id}/                # metaQUAST
-├── 05_mges/{assembly_id}/                       # geNomad
-├── 06_mapping/{group}/{assembly_id}/{reads_sample}.bam
+├── 01_qc/{read_type}/{sample}/                   # read_type = shotgun | hic
+├── 02_host_removed/{read_type}/{sample}/
+├── 03_assembly/{assembler}/{assembly_id}/        # assembly_id = sample or group_coassembly
+├── 04_assembly_qc/{assembly_id}/                 # metaQUAST
+│ └── selected/{assembly_id}.fa                   # representative assembly
+├── 05_mges/{assembly_id}/                        # geNomad
+├── 06a_mapping_shotgun/{assembly_id}/
+│ ├── {reads_sample}.bam                          # optional, see mapping_shotgun.keep_bams
+│ └── depth.tsv                                   # coverage table consumed by binners
+├── 06b_mapping_hic/{assembly_id}/
+│ ├── {hic_sample}.bam                            # bwa mem -5SP, chimera-aware
+│ └── {hic_sample}.pairs.gz                       # pairtools output; metaCC/bin3C/metaHiC input
 ├── 07_binning/{assembly_id}/{binner}/
-├── 08_refined/{assembly_id}/                    # Binette
-├── 09_dereplicated/{group}/                     # dRep
+├── 08_refined/{assembly_id}/                     # Binette
+├── 09_dereplicated/{group}/                      # dRep
 └── 10_annotation/{tool}/{genome}/
 logs/{rule}/{wildcards}.log
 benchmarks/{rule}/{wildcards}.tsv
 ```
 
-## 8. Module list
+## 8. Modules
 
-| # | Module | Tools | Optional |
+Modules are `.smk` files; stage numbers above are output directories. One module
+may write more than one stage.
+
+| Module | File | Writes | Tools | Optional |
 |---|---|---|---|
-| 01 | Read preprocessing | bbduk (adapters, quality, length, dedupe) | no |
-| 02 | Host decontamination | Hostile or bowtie2 vs host index | yes |
-| 03 | Assembly + QC + selection | MEGAHIT, metaSPAdes, metaQUAST | no |
-| 04 | MGE identification | geNomad | yes |
-| 05 | Mapping | bowtie2/minimap2 + samtools → per-group BAMs | no |
-| 06 | Binning | MetaBAT2, MaxBin2, SemiBin2, VAMB; metaCC, bin3C (Hi-C) | no |
-| 07 | Refinement | Binette (within assembly), dRep (across assemblies) | no |
-| 08 | Annotation | GTDB-Tk, Bakta, AMRFinderPlus | yes |
-| 09 | Read profiling | Kraken2 | yes |
+| Read preprocessing | `preprocess.smk` | 01 | bbduk (adapters, quality, length, dedupe) | no |
+| Host decontamination | `decontam.smk` | 02 | Hostile or bowtie2 vs host index | yes |
+| Assembly + QC + selection | `assembly.smk` | 03, 04 | MEGAHIT, metaSPAdes, metaQUAST, selection | no |
+| MGE identification | `mges.smk` | 05 | geNomad | yes |
+| Mapping | `mapping.smk` | 06a, 06b | bowtie2/minimap2 (shotgun); bwa + pairtools (Hi-C) | no |
+| Binning | `binning.smk` | 07 | MetaBAT2, MaxBin2, SemiBin2, VAMB; metaCC, bin3C | no |
+| Refinement | `refinement.smk` | 08, 09 | Binette, dRep | no |
+| Annotation | `annotation.smk` | 10 | GTDB-Tk, Bakta, AMRFinderPlus | yes |
+| Read Profiling | `profiling.smk` | — | Kraken2 (read-level) | yes |
+
 
 ## 9. Open design decisions
 
@@ -197,8 +205,44 @@ Each step: write → test on `test/` data → document → commit → push.
    ~1M reads is a good candidate — known ground truth, small)
 2. Preprocessing (01)
 3. Decontamination (02)
-4. Assembly, QC, selection (03)
-5. Mapping (05)
-6. Binning (06)
-7. Binette + dRep (07)
-8. Annotation add-ons (08), Kraken2 (09), geNomad (04)
+4. Assembly, QC, selection (03, 04)
+5. Mapping (06a, 06b)
+6. Binning (07)
+7. Binette + dRep (08, 09)
+8. Annotation add-ons (10), Kraken2 (11), geNomad (05)
+
+## 11. Config helpers
+
+`workflow/rules/common.smk` holds sample-sheet parsing and shared helpers,
+included from the Snakefile after `configfile:`.
+
+Preprocess params fall back from Hi-C overrides to shared defaults:
+
+```python
+def pp(key, read_type):
+    """Preprocess param, with hic overrides falling back to shared defaults."""
+    block = config["preprocess"]
+    if read_type == "hic":
+        return block.get("hic", {}).get(key, block[key])
+    return block[key]
+```
+
+Used in rules as `params: trimq=lambda wc: pp("trimq", wc.read_type)`.
+The `hic:` block in config.yaml lists only keys that differ from shotgun;
+deleting a key from it reverts that param to the shared value.
+
+### Hi-C alignment
+
+Hi-C reads are NOT aligned like shotgun reads. Chimeric reads spanning a
+ligation junction are signal, so alignment is single-end and chimera-aware
+(`bwa mem -5SP`), then processed by pairtools parse/sort/dedup into a pairs file.
+
+Ported from the existing metaHiC pairtools pipeline — do not rediscover these:
+- `pairtools sort --tmpdir` must point at scratch, and `TMPDIR` exported.
+  Default `/tmp` on Resnick is RAM-backed and fails on large libraries
+  (seen at 404M and 449M reads).
+- Exit codes do not catch silent truncation. Validate output size against
+  parsed input (sorted output < 1% of input = failure) before the rule's
+  output file is written.
+
+Hi-C duplicates are removed here, at the pair level, not during preprocessing.
