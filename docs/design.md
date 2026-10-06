@@ -84,11 +84,12 @@ mg-pipeline/
 sample is binned alone.
 
 ```
-sample    group    r1              r2              hic_r1          hic_r2
-A1        ww_ucsd  A1_R1.fq.gz     A1_R2.fq.gz     A1_hic_R1.fq.gz A1_hic_R2.fq.gz
-B1        ww_ucsd  B1_R1.fq.gz     B1_R2.fq.gz     B1_hic_R1.fq.gz B1_hic_R2.fq.gz
-MSH_01             MSH_01_R1.fq.gz MSH_01_R2.fq.gz
+sample    group    platform   r1              r2              hic_r1          hic_r2
+A1        ww_ucsd   nextseq  A1_R1.fq.gz     A1_R2.fq.gz     A1_hic_R1.fq.gz A1_hic_R2.fq.gz
+B1        ww_ucsd   nextseq  B1_R1.fq.gz     B1_R2.fq.gz     B1_hic_R1.fq.gz B1_hic_R2.fq.gz
+MSH_01  -   -   MSH_01_R1.fq.gz MSH_01_R2.fq.gz -   -
 ```
+`platform` is optional; samples that leave it blank use preprocess.platform from the config (default is set to `other` unless otherwise specified/changed). (The dashes are for the doc only — in the real TSV those are empty fields between tabs.)
 
 Semantics of `group`: samples in the same group are from the same community and may be
 cross-aligned for differential coverage and (optionally) co-assembled. Samples in different
@@ -101,10 +102,20 @@ samples: config/samples.tsv
 outdir: results
 
 preprocess:
-  adapters: resources/adapters.fa
+  adapters: bbmap
   min_len: 50
   trimq: 20
+  k: 23
+  mink: 11
+  hdist: 1
+  entropy: 0.0
+  ftm: 5                  # force-trim modulo; applied in the adapter step
   dedupe: true
+  platform: other         # fallback when the sample sheet has no platform column
+
+  # Hi-C overrides: only keys that differ from the block above.
+  hic:
+    dedupe: false         # Hi-C duplicates are called post-alignment by pairtools
 
 decontam:
   enabled: true

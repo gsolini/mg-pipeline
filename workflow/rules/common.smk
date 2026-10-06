@@ -40,6 +40,16 @@ def resolve(path):
 
 samples = pd.read_table(config["samples"], dtype=str).set_index("sample", drop=False)
 
+# Optional subset filter, for running one or a few samples:
+#   snakemake --config only_samples=BS_01 preprocess_all
+_only = config.get("only_samples")
+if _only:
+    keep = {s.strip() for s in str(_only).split(",")}
+    missing = keep - set(samples.index)
+    if missing:
+        raise ValueError(f"only_samples: not in sample sheet: {sorted(missing)}")
+    samples = samples.loc[sorted(keep)]
+
 # Samples whose sheet row carries Hi-C reads.
 HIC_SAMPLES = [
     s for s in samples.index
@@ -67,7 +77,6 @@ def sample_platform(sample):
         if pd.notna(val) and str(val).strip():
             return str(val).strip()
     return config["preprocess"]["platform"]
-
 
 # === Input functions =========================================================
 

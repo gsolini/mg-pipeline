@@ -109,21 +109,82 @@ Deleting a key from the `hic:` block reverts it to the shared value.
 
 ## Running it
 
-### As part of the pipeline
+All commands run from the repository root.
+
+### With defaults
+
+Uses `config/config.yaml` as-is, which expects `config/samples.tsv` and full
+paths in the sheet:
 
 ```bash
-# every sample, both read types
 snakemake --use-conda --cores 8 preprocess_all
-
-# one specific output
-snakemake --use-conda --cores 8 \
-  results/01_qc/shotgun/BS_01/BS_01_clean_R1.fq.gz
-
-# on the test dataset
-snakemake --configfile test/config.yaml --use-conda --cores 4 preprocess_all
 ```
 
-### Standalone
+### With your own dataset
+
+Write a run config for your dataset — it only needs the keys that differ from
+the defaults — and pass it with `--configfile`:
+
+```yaml
+# msh_config.yaml
+samples: /path/to/msh_samples.tsv
+fastq_dir: /central/groups/.../msh_reads
+outdir: /central/groups/.../msh_results
+
+preprocess:
+  trimq: 15          # everything else keeps its default
+```
+
+```bash
+snakemake --configfile msh_config.yaml --use-conda --cores 8 preprocess_all
+```
+
+Keep the nesting: `preprocess: trimq:`, not a bare `trimq:`. Run configs merge
+recursively, so unlisted keys under `preprocess:` keep their defaults.
+
+### Overriding a single value on the command line
+
+For one-off changes you don't want to record, `--config` sets top-level keys:
+
+```bash
+snakemake --config outdir=results_test --use-conda --cores 8 preprocess_all
+```
+
+This only works cleanly for top-level keys. Nested values (anything under
+`preprocess:`, `assembly:`, and so on) must be set in a config file — passing
+a nested block on the command line replaces the whole block, silently dropping
+any key you don't restate.
+
+### Running a subset of samples
+
+```bash
+snakemake --config only_samples=BS_01 --use-conda --cores 8 preprocess_all
+snakemake --config only_samples=BS_01,BS_02 --use-conda --cores 8 preprocess_all
+```
+
+Everything downstream respects the filter, so this works for every module.
+
+### Running one specific output file
+
+Any output path is a valid target. Useful when debugging a single file:
+
+```bash
+snakemake --use-conda --cores 8 \
+  results/01_qc/shotgun/BS_01/BS_01_clean_R1.fq.gz
+```
+
+The path is built from `outdir` plus the stage layout in the Outputs section
+above. You rarely need this — `only_samples` covers most cases.
+
+### Checking before running
+
+```bash
+snakemake -n preprocess_all           # dry run: print the plan, do nothing
+snakemake -n -r preprocess_all        # also explain why each job would run
+snakemake --dag preprocess_all | dot -Tpng > dag.png   # visualise the DAG
+```
+
+### Standalone, without Snakemake
 
 `workflow/scripts/preprocess.sh` takes everything as arguments and reads no
 config file, so it runs anywhere BBTools is available:
@@ -136,6 +197,10 @@ workflow/scripts/preprocess.sh \
 ```
 
 `--help` lists every option. For Hi-C libraries, add `--dedupe false`.
+
+Note that Snakemake's defaults live in `config/config.yaml`, while the script's
+defaults are set in the script itself. They're kept in sync, but the script is
+what runs here — check `--help` rather than assuming the config applies.
 
 ---
 
