@@ -1,0 +1,7 @@
+name: bbmap
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - bbmap=40.00
+  - openjdk=21     # BBTools is Java; pin so a JRE upgrade can't break it

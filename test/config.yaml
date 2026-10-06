@@ -1,0 +1,14 @@
+# mg-pipeline test configuration
+#
+# Overrides config/config.yaml for the bundled test dataset. Run with:
+#   snakemake -s workflow/Snakefile --configfile test/config.yaml \
+#             --use-conda --cores 4 preprocess_all
+#
+# Only keys that differ from the repo default belong here.
+
+samples: test/samples.tsv
+fastq_dir: test/data
+outdir: test/results
+
+preprocess:
+  platform: other        # set to the real instrument if known

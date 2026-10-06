@@ -1,0 +1,2 @@
+sample	group	platform	r1	r2	hic_r1	hic_r2
+BS_01		nextseq	test_R1.fastq.gz	test_R2.fastq.gz		

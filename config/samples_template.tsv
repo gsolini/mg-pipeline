@@ -1,0 +1,4 @@
+sample	group	platform	r1	r2	hic_r1	hic_r2
+EX_A1	ex_ww	novaseq	EX_A1_R1.fq.gz	EX_A1_R2.fq.gz	EX_A1_hic_R1.fq.gz	EX_A1_hic_R2.fq.gz
+EX_B1	ex_ww	novaseq	EX_B1_R1.fq.gz	EX_B1_R2.fq.gz		
+EX_SOLO		nextseq	/absolute/path/EX_SOLO_R1.fq.gz	/absolute/path/EX_SOLO_R2.fq.gz		

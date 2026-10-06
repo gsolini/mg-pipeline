@@ -42,9 +42,14 @@ resources_dir: resources
 # Always runs. Adapter removal, quality trimming, length filtering, dedup.
 
 preprocess:
+
   # FASTA of adapter sequences. "bbmap" resolves to the adapters.fa shipped
   # inside the bbmap conda package, which is the usual choice.
   adapters: bbmap
+
+  # Force-trim modulo: right-trims reads to a length divisible by this.
+  # 5 turns Illumina's junk 151st base into a clean 150. Set 0 to disable.
+  ftm: 5
 
   # Minimum read length to keep AFTER trimming (bp).
   min_len: 50
@@ -60,6 +65,10 @@ preprocess:
 
   # Remove PCR/optical duplicates with clumpify before trimming.
   dedupe: true
+
+  # Sequencing platform used; this will determine the dedupe parameters
+  # options are: "nextseq", "hiseq" (1T/2500), "hiseq_patterned" (3k/4k/X), "nextseq", "other"
+  platform: other
 
   # Entropy filter: drops low-complexity reads. Set to 0 to disable.
   entropy: 0.0
