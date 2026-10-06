@@ -222,3 +222,4 @@ test/results/
 test/data/
 test/results/
 .snakemake/
+.DS_Store
