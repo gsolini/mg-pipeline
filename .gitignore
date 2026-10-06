@@ -216,3 +216,9 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+test/data/
+test/results/
+.snakemake/
+test/data/
+test/results/
+.snakemake/
