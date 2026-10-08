@@ -11,4 +11,7 @@ fastq_dir: test/data
 outdir: test/results
 
 preprocess:
-  platform: other        # set to the real instrument if known
+  platform: novaseq
+  hic:
+    platform: nextseq
+    dedupe: false

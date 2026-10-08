@@ -10,15 +10,15 @@
 wildcard_constraints:
     read_type="shotgun|hic",
     sample="[A-Za-z0-9_.-]+",
-
+    read="R1|R2",
 
 rule preprocess:
     """Dedupe (optional) -> adapter removal -> quality trim."""
     input:
         unpack(get_reads),
     output:
-        r1=f"{OUTDIR}/01_qc/{{read_type}}/{{sample}}/{{sample}}_clean_R1.fq.gz",
-        r2=f"{OUTDIR}/01_qc/{{read_type}}/{{sample}}/{{sample}}_clean_R2.fq.gz",
+        r1=f"{OUTDIR}/01_qc/{{sample}}_{{read_type}}_clean_R1.fq.gz",
+        r2=f"{OUTDIR}/01_qc/{{sample}}_{{read_type}}_clean_R2.fq.gz",
     params:
         script=join(SCRIPTS, "preprocess.sh"),
         adapters=lambda wc: pp("adapters", wc.read_type),
@@ -31,7 +31,7 @@ rule preprocess:
         ftm=lambda wc: pp("ftm", wc.read_type),
         # false for Hi-C: duplicates are called post-alignment by pairtools.
         dedupe=lambda wc: str(pp("dedupe", wc.read_type)).lower(),
-        platform=lambda wc: sample_platform(wc.sample),
+        platform=lambda wc: sample_platform(wc.sample, wc.read_type),
     log:
         f"{OUTDIR}/logs/preprocess/{{read_type}}_{{sample}}.log",
     benchmark:
@@ -63,10 +63,11 @@ rule fastqc:
     rule can be pointed at raw reads for a before/after comparison.
     """
     input:
-        f"{OUTDIR}/01_qc/{{read_type}}/{{sample}}/{{sample}}_clean_{{read}}.fq.gz",
+        f"{OUTDIR}/01_qc/{{sample}}_{{read_type}}_clean_{{read}}.fq.gz",
     output:
-        html=f"{OUTDIR}/01_qc/{{read_type}}/{{sample}}/fastqc/{{sample}}_clean_{{read}}_fastqc.html",
-        zip=f"{OUTDIR}/01_qc/{{read_type}}/{{sample}}/fastqc/{{sample}}_clean_{{read}}_fastqc.zip",
+        html=f"{OUTDIR}/01_qc/fastqc/{{sample}}_{{read_type}}_clean_{{read}}_fastqc.html",
+        zip=f"{OUTDIR}/01_qc/fastqc/{{sample}}_{{read_type}}_clean_{{read}}_fastqc.zip",
+
     params:
         outdir=lambda wc, output: os.path.dirname(output.html),
     log:
@@ -85,12 +86,14 @@ rule preprocess_all:
     """
     input:
         expand(
-            f"{OUTDIR}/01_qc/shotgun/{{sample}}/fastqc/{{sample}}_clean_{{read}}_fastqc.html",
+            f"{OUTDIR}/01_qc/fastqc/{{sample}}_{{read_type}}_clean_{{read}}_fastqc.html",
+            read_type=["shotgun", "hic"],
             sample=SHOTGUN_SAMPLES,
             read=["R1", "R2"],
         ),
         expand(
-            f"{OUTDIR}/01_qc/hic/{{sample}}/fastqc/{{sample}}_clean_{{read}}_fastqc.html",
+            f"{OUTDIR}/01_qc/fastqc/{{sample}}_{{read_type}}_clean_{{read}}_fastqc.zip",
+            read_type=["shotgun", "hic"],
             sample=HIC_SAMPLES,
             read=["R1", "R2"],
         ),

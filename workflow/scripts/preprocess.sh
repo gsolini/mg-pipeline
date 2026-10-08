@@ -133,6 +133,15 @@ fi
 # Runs first: clumpify groups by sequence, and trimming would mask duplicates.
 if [[ "$dedupe" == "true" ]]; then
   echo "[preprocess] 1/3 clumpify (dedupe)"
+
+  if [[ -n "$optical_flags" ]]; then
+    hdr=$(gzip -cd "$r1" 2>/dev/null | head -1 || true)
+    if [[ ! "$hdr" =~ :[0-9]+:[0-9]+:[0-9]+:[0-9]+ ]]; then
+      echo "[preprocess] WARNING: read headers lack flowcell coordinates" >&2
+      echo "[preprocess]   (typical of SRA downloads). Skipping the optical pass." >&2
+      optical_flags=""
+    fi
+  fi
   clumpify.sh \
     in="$r1" in2="$r2" \
     out="$work/dedup_R1.fq.gz" out2="$work/dedup_R2.fq.gz" \

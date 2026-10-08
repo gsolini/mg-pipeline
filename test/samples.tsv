@@ -1,2 +1,3 @@
-sample	group	platform	r1	r2	hic_r1	hic_r2
-BS_01		nextseq	test_R1.fastq.gz	test_R2.fastq.gz		
+sample	group	r1	r2	hic_r1	hic_r2
+ZY_0	zymo	ZY_0_R1.fq.gz	ZY_0_R2.fq.gz	ZY_hic_0_R1.fq.gz	ZY_hic_0_R2.fq.gz
+ZY_1	zymo	ZY_1_R1.fq.gz	ZY_1_R2.fq.gz	ZY_hic_1_R1.fq.gz	ZY_hic_1_R2.fq.gz

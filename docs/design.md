@@ -83,12 +83,14 @@ mg-pipeline/
 `config/samples.tsv` — tab-separated. Hi-C columns blank when absent; `group` blank when the
 sample is binned alone.
 
-```
-sample    group    platform   r1              r2              hic_r1          hic_r2
-A1        ww_ucsd   nextseq  A1_R1.fq.gz     A1_R2.fq.gz     A1_hic_R1.fq.gz A1_hic_R2.fq.gz
-B1        ww_ucsd   nextseq  B1_R1.fq.gz     B1_R2.fq.gz     B1_hic_R1.fq.gz B1_hic_R2.fq.gz
-MSH_01  -   -   MSH_01_R1.fq.gz MSH_01_R2.fq.gz -   -
-```
+
+| sample | group | platform | hic_platform | r1 | r2 | hic_r1 | hic_r2 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| EX_A1 | ex_ww | novaseq | nextseq | EX_A1_R1.fq.gz | EX_A1_R2.fq.gz | EX_A1_hic_R1.fq.gz | EX_A1_hic_R2.fq.gz |
+| EX_B1 | ex_ww |  |  | EX_B1_R1.fq.gz | EX_B1_R2.fq.gz |  |  | 
+| EX_SOLO |  |  |  | /abs/path_R1.fq.gz | /abs/path_R2.fq.gz |  |  |
+
+
 `platform` is optional; samples that leave it blank use preprocess.platform from the config (default is set to `other` unless otherwise specified/changed). (The dashes are for the doc only — in the real TSV those are empty fields between tabs.)
 
 Semantics of `group`: samples in the same group are from the same community and may be
@@ -150,22 +152,23 @@ annotation:
 ## 7. Output tree
 ```
 results/
-├── 01_qc/{read_type}/{sample}/                   # read_type = shotgun | hic
-├── 02_host_removed/{read_type}/{sample}/
-├── 03_assembly/{assembler}/{assembly_id}/        # assembly_id = sample or group_coassembly
-├── 04_assembly_qc/{assembly_id}/                 # metaQUAST
-│ └── selected/{assembly_id}.fa                   # representative assembly
-├── 05_mges/{assembly_id}/                        # geNomad
+├── 01_qc/{sample}_{read_type}_R{1,2}.fq.gz             # read_type = shotgun | hic
+│   └── fastqc/
+├── 02_host_removed/{sample}_{read_type}_R{1,2}.fq.gz   
+├── 03_assembly/{assembly_id}.{assembler}/              # assembly_id = sample or group_coassembly
+├── 04_assembly_qc/{assembly_id}.{assembler}/           # metaQUAST
+│   └── selected/{assembly_id}.fa                       # representative assembly if multiple were run
+├── 05_mges/{assembly_id}/                              # geNomad
 ├── 06a_mapping_shotgun/{assembly_id}/
-│ ├── {reads_sample}.bam                          # optional, see mapping_shotgun.keep_bams
-│ └── depth.tsv                                   # coverage table consumed by binners
+│ ├── {reads_sample}.bam                                # optional, see mapping_shotgun.keep_bams
+│ └── depth.tsv                                         # coverage table consumed by binners
 ├── 06b_mapping_hic/{assembly_id}/
-│ ├── {hic_sample}.bam                            # bwa mem -5SP, chimera-aware
-│ └── {hic_sample}.pairs.gz                       # pairtools output; metaCC/bin3C/metaHiC input
+│ ├── {hic_sample}.bam                                  # bwa mem -5SP, chimera-aware
+│ └── {hic_sample}.pairs.gz                             # pairtools output; metaCC/bin3C/metaHiC input
 ├── 07_binning/{assembly_id}/{binner}/
-├── 08_refined/{assembly_id}/                     # Binette
-├── 09_dereplicated/{group}/                      # dRep
-└── 10_annotation/{tool}/{genome}/
+├── 08_refined/{assembly_id}/                           # Binette
+├── 09_dereplicated/{group}/                            # dRep
+└── 10_annotation/{tool}/
 logs/{rule}/{wildcards}.log
 benchmarks/{rule}/{wildcards}.tsv
 ```

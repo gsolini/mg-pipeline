@@ -6,6 +6,7 @@
 import os
 from os.path import join, expanduser
 import pandas as pd
+import re
 
 
 # === Paths ===================================================================
@@ -39,6 +40,40 @@ def resolve(path):
 # === Sample sheet ============================================================
 
 samples = pd.read_table(config["samples"], dtype=str).set_index("sample", drop=False)
+samples = samples.apply(lambda c: c.str.strip() if c.dtype == "object" else c)
+
+def _validate_samples(df):
+    """Check the sample sheet before any rule runs."""
+    required = ["sample", "r1", "r2"]
+    missing = [c for c in required if c not in df.columns]
+    if missing:
+        raise ValueError(f"sample sheet is missing required column(s): {missing}")
+
+    dupes = df["sample"][df["sample"].duplicated()].tolist()
+    if dupes:
+        raise ValueError(f"duplicate sample IDs in sample sheet: {sorted(set(dupes))}")
+
+    for s in df["sample"]:
+        if not re.fullmatch(r"[A-Za-z0-9_.-]+", str(s)):
+            raise ValueError(
+                f"sample ID '{s}' contains characters that break path wildcards; "
+                "use letters, digits, underscore, dot or hyphen only"
+            )
+
+    # Hi-C must be paired or absent, never half-specified.
+    if "hic_r1" in df.columns or "hic_r2" in df.columns:
+        for _, row in df.iterrows():
+            s = row["sample"]
+            if str(row["r1"]).strip() == str(row["r2"]).strip():
+                raise ValueError(f"sample {s}: r1 and r2 are the same file")
+            one = str(row.get("hic_r1", "") or "").strip()
+            two = str(row.get("hic_r2", "") or "").strip()
+            if bool(one) != bool(two):
+                raise ValueError(f"sample {s}: hic_r1 and hic_r2 must both be set or both blank")
+            if one and one == two:
+                raise ValueError(f"sample {s}: hic_r1 and hic_r2 are the same file")
+
+_validate_samples(samples)
 
 # Optional subset filter, for running one or a few samples:
 #   snakemake --config only_samples=BS_01 preprocess_all
@@ -69,14 +104,26 @@ def sample_group(sample):
     """The sample's group, or None when it is ungrouped."""
     g = samples.loc[sample, "group"]
     return g if pd.notna(g) and str(g).strip() else None
-    
-def sample_platform(sample):
-    """Platform from the sample sheet, falling back to the config default."""
-    if "platform" in samples.columns:
-        val = samples.loc[sample, "platform"]
-        if pd.notna(val) and str(val).strip():
-            return str(val).strip()
-    return config["preprocess"]["platform"]
+
+def sample_platform(sample, read_type="shotgun"):
+    """Platform for one library.
+
+    Resolution order, first hit wins:
+      1. hic_platform column (Hi-C only) — for the rare split-instrument case
+      2. platform column
+      3. preprocess.hic.platform in the config (Hi-C only)
+      4. preprocess.platform in the config
+    """
+    def col(name):
+        if name in samples.columns:
+            val = samples.loc[sample, name]
+            if pd.notna(val) and str(val).strip():
+                return str(val).strip()
+        return None
+
+    if read_type == "hic":
+        return col("hic_platform") or col("platform") or pp("platform", "hic")
+    return col("platform") or pp("platform", "shotgun")
 
 # === Input functions =========================================================
 
