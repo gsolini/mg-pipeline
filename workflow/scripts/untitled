@@ -1,0 +1,88 @@
+!/usr/bin/env bash
+#
+# mg-pipeline module 02 — host decontamination
+#
+# Standalone: takes everything as arguments, reads no config file.
+#
+# Usage:
+#   decontaminate.sh --r1 IN_R1 --r2 IN_R2 --out1 OUT_R1 --out2 OUT_R2 [options]
+#
+# Required:
+#   --r1 FILE          input R1 fastq(.gz)
+#   --r2 FILE          input R2 fastq(.gz)
+#   --out1 FILE        output R1 fastq.gz
+#   --out2 FILE        output R2 fastq.gz
+#
+# Options (defaults in brackets):
+#   --threads N        [8]
+
+#   --tmpdir DIR       scratch for intermediates [system temp]
+#   --log FILE         append tool stderr here as well as to this script's stderr
+#
+# Notes:
+#   Deduplication runs BEFORE trimming: clumpify groups reads by sequence
+#   similarity, and trimming makes identical fragments look different.
+#   For Hi-C reads, pass --dedupe false. Hi-C duplicates must be identified
+#   after alignment from the mapped positions of both ends (pairtools dedup);
+#   read-level dedup cannot do that, and destroys the duplicate-rate QC metric.
+
+set -euo pipefail
+
+# --- defaults ----------------------------------------------------------------
+threads=8
+adapters="bbmap"
+min_len=50
+trimq=20
+k=23
+mink=11
+hdist=1
+entropy=0.0
+ftm=5
+dedupe=true
+platform="other"
+tmpdir="${TMPDIR:-/tmp}"
+logfile=""
+
+# --- parse arguments ---------------------------------------------------------
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --fastq1)   r1="$2";       shift 2 ;;
+    --fastq2)   r2="$2";       shift 2 ;;
+    --out1)     out1="$2";     shift 2 ;;
+    --out2)     out2="$2";     shift 2 ;;
+	--index)	index="$2";    shift 2 ;;
+    --threads)  threads="$2";  shift 2 ;;
+    --aligner) 	aligner="$2";  shift 2 ;;
+	--invert)	invert="$2";   shift 2 ;; 
+    --tmpdir)   tmpdir="$2";   shift 2 ;;
+    --log)      logfile="$2";  shift 2 ;;
+    -h|--help)  sed -n '2,50p' "$0"; exit 0 ;;
+    *) echo "ERROR: unknown argument: $1" >&2; exit 1 ;;
+  esac
+done
+
+for required in r1 r2 out1 out2; do
+  if [[ -z "${!required:-}" ]]; then
+    echo "ERROR: --${required} is required" >&2
+    exit 1
+  fi
+done
+
+for f in "$r1" "$r2"; do
+  [[ -s "$f" ]] || { echo "ERROR: input not found or empty: $f" >&2; exit 1; }
+done
+
+if [[ -n "$logfile" ]]; then
+  mkdir -p "$(dirname "$logfile")"
+  exec 2> >(tee -a "$logfile" >&2)
+fi
+
+mkdir -p "$(dirname "$out1")" "$(dirname "$out2")" "$tmpdir"
+
+# --- working directory, cleaned up on any exit -------------------------------
+work=$(mktemp -d "${tmpdir%/}/preprocess.XXXXXX")
+trap 'rm -rf "$work"' EXIT
+
+echo "[preprocess] input:    $r1 / $r2"
+echo "[preprocess] workdir:  $work"
+echo "[preprocess] dedupe:   $dedupe (platform: $platform)"

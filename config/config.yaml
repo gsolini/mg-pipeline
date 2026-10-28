@@ -83,21 +83,44 @@ preprocess:
 
 
 # === 02 — Host decontamination ===============================================
-# Optional. Removes reads mapping to one or more host genomes.
+# Optional. Maps shotgun reads against a masked host index (Hostile) and
+# discards what aligns. Hi-C reads are never decontaminated, see
+# docs/modules/02_decontam.md.
 
 decontam:
   enabled: false
 
-  # Which hosts to remove, by key. Each key must exist under `indexes` below.
-  hosts: [human]
+  # Standard Hostile index, downloaded and cached automatically under
+  # resources_dir on first use. Run `hostile index list` for the current set.
+  # the list below was accurate as of 2026-10 and may be out of date.
+  #
+  #   human-t2t-hla
+  #       T2T-CHM13v2.0 + IPD-IMGT/HLA. Unmasked.
+  #   human-t2t-hla-argos985
+  #       masked against 985 FDA-ARGOS bacterial genomes
+  #   human-t2t-hla.rs-viral-202401_ml-phage-202401
+  #       masked against RefSeq viral + Millard Lab phage
+  #   human-t2t-hla.argos-bacteria-985_rs-viral-202401_ml-phage-202401
+  #       masked against bacteria, viruses and phage (default here)
+  #   human-t2t-hla-argos985-mycob140
+  #       bacteria + 140 mycobacterial genomes
+  #   mouse-mm39
+  #   test-human-mit
+  #       human mitochondrial genome; tiny, for testing only
+  #
+  # Masking matters: an unmasked human reference discards microbial reads that
+  # match conserved human regions. The phage-masked index is the default
+  # because geNomad calls phage downstream and losing them would be silent.
+  index: human-t2t-hla.argos-bacteria-985_rs-viral-202401_ml-phage-202401
 
-  # Named host indexes. Paths are relative to resources_dir unless absolute.
-  indexes:
-    human: hostile/human-t2t-hla
-    # mouse: hostile/mouse-grcm39
+  # Set to a FASTA path to build a custom Bowtie2 index from it instead of
+  # fetching a standard index. The result is UNMASKED — run `hostile mask`
+  # yourself first if masking matters for your host.
+  custom_fasta: ""
 
-  # Tool used for host removal: "hostile" or "bowtie2".
-  tool: hostile
+  # bowtie2 | minimap2 | auto. Hostile picks bowtie2 for short reads under
+  # auto, which is always the case here.
+  aligner: auto
 
 
 # === 03 — Assembly ===========================================================

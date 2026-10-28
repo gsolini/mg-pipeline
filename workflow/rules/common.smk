@@ -16,7 +16,7 @@ import re
 SCRIPTS = join(workflow.basedir, "scripts")
 
 OUTDIR = config["outdir"]
-
+RESOURCES = config["resources_dir"]
 
 def scratch(*parts):
     """Path under scratch_dir, fall back to <outdir>/intermediates.
@@ -60,12 +60,14 @@ def _validate_samples(df):
                 "use letters, digits, underscore, dot or hyphen only"
             )
 
-    # Hi-C must be paired or absent, never half-specified.
-    if "hic_r1" in df.columns or "hic_r2" in df.columns:
-        for _, row in df.iterrows():
-            s = row["sample"]
-            if str(row["r1"]).strip() == str(row["r2"]).strip():
-                raise ValueError(f"sample {s}: r1 and r2 are the same file")
+    for _, row in df.iterrows():
+        s = row["sample"]
+        # check to make sure r1 and r2 are not the same file (common mistake when copy-pasting filenames)
+        if str(row["r1"]).strip() == str(row["r2"]).strip():
+            raise ValueError(f"sample {row['sample']}: r1 and r2 are the same file")
+
+        # Hi-C must be paired or absent, never half-specified.
+        if "hic_r1" in df.columns or "hic_r2" in df.columns:
             one = str(row.get("hic_r1", "") or "").strip()
             two = str(row.get("hic_r2", "") or "").strip()
             if bool(one) != bool(two):
@@ -144,6 +146,10 @@ def get_reads(wildcards):
 
 # === Config accessors ========================================================
 
+def nthreads(rule_name):
+    """Thread count for a rule, from the config's threads block."""
+    return config["threads"][rule_name]
+
 def pp(key, read_type):
     """A preprocess param, with Hi-C overrides falling back to shared defaults.
 
@@ -155,7 +161,18 @@ def pp(key, read_type):
         return block.get("hic", {}).get(key, block[key])
     return block[key]
 
+def decontam_index_marker():
+    """A decontamination helper function, which builds a custom index if provided
+    a FASTA file, but otherwise defaults to the standard hostile index.
+    """
+    if config["decontam"]["custom_fasta"]:
+        return f"{RESOURCES}/hostile/custom/custom.1.bt2"
+    return f"{RESOURCES}/hostile/{config['decontam']['index']}/.fetched"
 
-def nthreads(rule_name):
-    """Thread count for a rule, from the config's threads block."""
-    return config["threads"][rule_name]
+def decontam_index_arg():
+    """What to pass to `hostile clean --index`."""
+    if config["decontam"]["custom_fasta"]:
+        return f"{RESOURCES}/hostile/custom/custom"
+    return config["decontam"]["index"]
+
+

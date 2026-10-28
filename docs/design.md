@@ -179,7 +179,7 @@ Modules are `.smk` files; stage numbers above are output directories. One module
 may write more than one stage.
 
 | Module | File | Writes | Tools | Optional |
-|---|---|---|---|
+|---|---|---|---|---|
 | Read preprocessing | `preprocess.smk` | 01 | bbduk (adapters, quality, length, dedupe) | no |
 | Host decontamination | `decontam.smk` | 02 | Hostile or bowtie2 vs host index | yes |
 | Assembly + QC + selection | `assembly.smk` | 03, 04 | MEGAHIT, metaSPAdes, metaQUAST, selection | no |
