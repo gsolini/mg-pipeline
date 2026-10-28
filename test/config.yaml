@@ -15,3 +15,7 @@ preprocess:
   hic:
     platform: nextseq
     dedupe: false
+
+decontam:
+  enabled: true
+  index: test-human-mit
